@@ -6,9 +6,9 @@
 // raniellyferreira@rfs.net.br
 // v 3.2.0 EXTENDED
 // ULTIMA MODIFICAÇÃO: 25/04/2013
+// More info https://github.com/raniellyferreira/db-session
 
 *ACEITO SUGESTÕES
-
 
 ESTRUTURA DO BANCO DE DADOS
 
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS `sess_session` (
 
 Array com as configurações pre definidas
 $params = array('create_table_db' => FALSE,
-  			'sess_encrypt_cookie' => TRUE,
+				'sess_encrypt_cookie' => TRUE,
 				'sess_match_ip' => TRUE,
 				'sess_match_useragent' => TRUE,
 				'sess_expiration' => 28800,
@@ -41,8 +41,14 @@ $params = array('create_table_db' => FALSE,
 				'encryption_key' => 'set key',
 				'expire_on_close' => FALSE);
 
-*/
 
+--Change History
+https://github.com/raniellyferreira/db-session/wiki/Change-History
+
+--Examples
+https://github.com/raniellyferreira/db-session/wiki/Examples
+
+*/
 
 
 class Session 
