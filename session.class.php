@@ -4,8 +4,8 @@
 // CRIADO POR RANIELLY FERREIRA
 // WWW.RFS.NET.BR
 // raniellyferreira@rfs.net.br
-// v 3.2.0 EXTENDED
-// ULTIMA MODIFICAÇÃO: 25/04/2013
+// v 3.2.1 EXTENDED
+// ULTIMA MODIFICAÇÃO: 08/05/2013
 // More info https://github.com/raniellyferreira/db-session
 
 *ACEITO SUGESTÕES
@@ -428,7 +428,7 @@ class Session
 	
 	function new_id()
 	{
-		return sha1(time().$this->gerarkey(60,3).uniqid(time().rand(),TRUE));
+		return sha1(time().$this->gerarkey(60,3).uniqid(time().rand(),TRUE).$this->encryption_key);
 	}
 	
 	function ip_address()
@@ -447,7 +447,7 @@ class Session
 		return base64_encode($var);
 	}
 	
-	function cookie($name = NULL)
+	private function cookie($name = NULL)
 	{
 		if($name === NULL) $name = $this->sess_cookie_name;
 		if(!isset($_COOKIE[$name])) return FALSE;
@@ -875,5 +875,3 @@ class Session
 		return $this;
 	}
 }
-
-?>
