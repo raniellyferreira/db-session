@@ -4,8 +4,8 @@
 // CRIADO POR RANIELLY FERREIRA
 // WWW.RFS.NET.BR
 // raniellyferreira@rfs.net.br
-// v 3.2.1 EXTENDED
-// ULTIMA MODIFICAÇÃO: 08/05/2013
+// v 3.3.0 EXTENDED
+// ULTIMA MODIFICAÇÃO: 18/11/2014
 // More info https://github.com/raniellyferreira/db-session
 
 *ACEITO SUGESTÕES
@@ -53,29 +53,30 @@ https://github.com/raniellyferreira/db-session/wiki/Examples
 
 class Session 
 {
-	public $create_table_db				= FALSE;					//CRIAR TABELA AO INICIAR SESSAO, CASO NAO EXISTA
+	public $create_table_db				= FALSE;						//CRIAR TABELA AO INICIAR SESSAO, CASO NAO EXISTA
 	public $sess_encrypt_cookie			= TRUE;						//CRIPTOGRAFAR COOKIE
 	public $sess_match_ip				= TRUE;						//VALIDAR IP
-	public $sess_match_useragent		= TRUE;						//VALIDAR NAVEGADOR
+	public $sess_match_useragent			= TRUE;						//VALIDAR NAVEGADOR
 	public $sess_expiration				= 28800; 					//TEMPO QUE DURA A SESSAO EM SEGUNDOS 28800 = 8 HORAS. 0 PARA NAO EXPIRAR
 	public $sess_cookie_name 			= 'sess_cookie_name'; 		//NOME DO COOKIE
 	public $cookie_prefix				= '';						//PREFIXO DO COOKIE
 	public $cookie_path					= '/';						//PATCH DO COOKIE
 	public $cookie_domain				= '';						//DOMINIO DO COOKIE
 	public $sess_table_name				= 'sess_session'; 			//NOME DA TABELA DO BANCO DE DADOS
-	public $old_sess_probability 		= 5;						//CHANCE PARA EXCLUIR SESSÕES VELHAS
-	public $one_only_session_per_ip		= FALSE;					//APENAS UMA SESSAO POR IP
+	public $old_sess_probability 		= 5;							//CHANCE PARA EXCLUIR SESSÕES VELHAS
+	public $one_only_session_per_ip		= FALSE;						//APENAS UMA SESSAO POR IP
 	public $sess_time_to_update			= 300;						//TEMPO PARA RENOVAÇÃO DO ID DA SESSÃO
-	public $reforce_security			= TRUE;						//ADICIONA PROTEÇÃO CONTRA MANIPULAÇÃO DA SESSÃO
+	public $reforce_security				= TRUE;						//ADICIONA PROTEÇÃO CONTRA MANIPULAÇÃO DA SESSÃO
 	public $encryption_key				= '';						//GERE UMA KEY EM rfs.net.br/gerarkey.php
-	public $expire_on_close				= FALSE;					//SESSÃO EXPIRA AO FECHAR O NAVEGADOR
+	public $expire_on_close				= FALSE;						//SESSÃO EXPIRA AO FECHAR O NAVEGADOR
+	public $data_compile_type			= 'serialize';				//OPÇÕES SERIALIZE OU JSON
 	
-	private $cookie 					= ''; 						//NAO ALTERE
-	private $id_session 				= ''; 						//NAO ALTERE
+	private $cookie 						= ''; 						//NAO ALTERE
+	private $id_session 					= ''; 						//NAO ALTERE
 	private $new_session_id				= '';						//NAO ALTERE
-	private $ip 						= ''; 						//NAO ALTERE
+	private $ip 							= ''; 						//NAO ALTERE
 	private $user_agent					= '';						//NAO ALTERE
-	private $now						= 0;						//NAO ALTERE
+	private $now							= 0;							//NAO ALTERE
 	private $userdata 					= array();					//NAO ALTERE
 	private $info 						= array();					//NAO ALTERE
 	
@@ -139,12 +140,11 @@ class Session
 		}
 		
 		$this->clear();
-
 	}
 	
 	public function load($array = array())
 	{
-		if((bool) ! $array)
+		if(empty($array))
 		{
 			return FALSE;
 		}
@@ -216,7 +216,7 @@ class Session
 			$newdata = array($newdata);
 		}
 
-		if ((bool) $newdata)
+		if (!empty($newdata))
 		{
 			foreach ($newdata as $key)
 			{
@@ -294,7 +294,7 @@ class Session
 		
 		$db_data = $this->item($query,'user_data');
 		
-		if($this->notnull($db_data) and $db_data != '')
+		if(!empty($db_data))
 		{
 			$custom_data = $this->_unserialize($db_data);
 			unset($db_data);
@@ -337,7 +337,7 @@ class Session
 		
 		$dados = array();
 		
-		if((bool) !$this->new_session_id)
+		if(empty($this->new_session_id))
 		{
 			$dados['last_activity'] = $this->now;
 			$where = array('`session_id` =' => $this->id_session);
@@ -512,7 +512,7 @@ class Session
 	{
 		if($this->reforce_security === FALSE) return FALSE;
 		
-		if((bool) ! $this->encryption_key)
+		if(empty($this->encryption_key))
 		{
 			return exit("Please, set the encryption key in encryption_key parameter.");
 		}
@@ -521,45 +521,57 @@ class Session
 	
 	function _serialize($data)
 	{
-		if (is_array($data))
+		if(strtolower($this->data_compile_type) == 'json' AND function_exists('json_encode'))
 		{
-			foreach ($data as $key => $val)
+			return @json_encode($data);
+		} else
+		{
+			if (is_array($data))
 			{
-				if (is_string($val))
+				foreach ($data as $key => $val)
 				{
-					$data[$key] = str_replace('\\', '{{slash}}', $val);
+					if (is_string($val))
+					{
+						$data[$key] = str_replace('\\', '{{slash}}', $val);
+					}
 				}
 			}
-		}
-		else
-		{
-			if (is_string($data))
+			else
 			{
-				$data = str_replace('\\', '{{slash}}', $data);
+				if (is_string($data))
+				{
+					$data = str_replace('\\', '{{slash}}', $data);
+				}
 			}
+	
+			return serialize($data);
 		}
-
-		return serialize($data);
 	}
 	
 	function _unserialize($data)
 	{
-		$data = @unserialize($this->strip_slashes($data));
-
-		if (is_array($data))
+		if(strtolower($this->data_compile_type) == 'json' AND function_exists('json_decode'))
 		{
-			foreach ($data as $key => $val)
+			return @json_decode($data);
+		} else
+		{
+			$data = @unserialize($this->strip_slashes($data));
+	
+			if (is_array($data))
 			{
-				if (is_string($val))
+				foreach ($data as $key => $val)
 				{
-					$data[$key] = str_replace('{{slash}}', '\\', $val);
+					if (is_string($val))
+					{
+						$data[$key] = str_replace('{{slash}}', '\\', $val);
+					}
 				}
+	
+				return $data;
 			}
-
-			return $data;
+	
+			return (is_string($data)) ? str_replace('{{slash}}', '\\', $data) : $data;
 		}
-
-		return (is_string($data)) ? str_replace('{{slash}}', '\\', $data) : $data;
 	}
 	
 	function strip_slashes($str)
@@ -581,7 +593,7 @@ class Session
 	
 	function notnull($var)
 	{
-		if((bool) trim($var)) return TRUE; else	return FALSE;
+		if(empty($var)) return FALSE; else return TRUE;
 	}
 	
 	
@@ -616,6 +628,11 @@ class Session
 	
 	function ArrayToObject($array)
 	{
+		if(is_object($array) OR empty($array))
+		{
+			return $array;
+		}
+		
 		$return = new stdClass();
 		foreach ($array as $k => $v) 
 		{
@@ -698,7 +715,7 @@ class Session
 			return FALSE;
 		}
 		
-		if(is_array($where) and (bool) $where)
+		if(!empty($where) AND is_array($where))
 		{
 			foreach($where as $k => $v)
 			{
@@ -730,7 +747,7 @@ class Session
 			return FALSE;
 		}
 		
-		if(is_array($where) and (bool) $where)
+		if(!empty($where) AND is_array($where))
 		{
 			foreach($where as $k => $v)
 			{
@@ -748,7 +765,7 @@ class Session
 	
 	public function delete($table,$where = NULL)
 	{
-		if(is_array($where) and (bool) $where)
+		if(!empty($where) AND is_array($where))
 		{
 			foreach($where as $k => $v)
 			{
