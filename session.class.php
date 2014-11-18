@@ -553,7 +553,7 @@ class Session
 	{
 		if(strtolower($this->data_compile_type) == 'json' AND function_exists('json_decode'))
 		{
-			return @json_decode($data);
+			return @json_decode($data,TRUE);
 		} else
 		{
 			$data = @unserialize($this->strip_slashes($data));
