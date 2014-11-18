@@ -39,7 +39,8 @@ $params = array('create_table_db' => FALSE,
 				'connection' => NULL,
 				'reforce_security' => TRUE,
 				'encryption_key' => 'set key',
-				'expire_on_close' => FALSE);
+				'expire_on_close' => FALSE,
+				'data_compile_type' => 'serialize');
 
 
 --Change History
