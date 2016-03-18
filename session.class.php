@@ -4,43 +4,47 @@
 // CRIADO POR RANIELLY FERREIRA
 // WWW.RFS.NET.BR
 // raniellyferreira@rfs.net.br
-// v 3.3.0 EXTENDED
-// ULTIMA MODIFICAÇÃO: 18/11/2014
+// v 4.0.0 EXTENDED
+// ULTIMA MODIFICAÇÃO: 18/03/2015
 // More info https://github.com/raniellyferreira/db-session
 
 *ACEITO SUGESTÕES
 
 ESTRUTURA DO BANCO DE DADOS
 
-CREATE TABLE IF NOT EXISTS `sess_session` (
-  `session_id` varchar(255) NOT NULL,
-  `ip_address` varchar(16) NOT NULL,
+CREATE TABLE IF NOT EXISTS `session` (
+  `session_id` varchar(40) NOT NULL,
+  `ip_address` varchar(20) NOT NULL,
   `user_agent` varchar(120) NOT NULL,
   `last_activity` int(11) NOT NULL,
-  `user_data` longtext NULL,
+  `user_data` mediumblob,
   PRIMARY KEY (`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 Array com as configurações pre definidas
-$params = array('create_table_db' => FALSE,
-				'sess_encrypt_cookie' => TRUE,
-				'sess_match_ip' => TRUE,
-				'sess_match_useragent' => TRUE,
-				'sess_expiration' => 28800,
-				'sess_cookie_name' => 'sess_cookie_name',
-				'cookie_prefix' => '',
-				'cookie_path' => '/',
-				'cookie_domain' => '',
-				'sess_table_name' => 'sess_session',
-				'old_sess_probability' => 5,
-				'one_only_session_per_ip' => FALSE,
-				'sess_time_to_update' => 300,
-				'connection' => NULL,
-				'reforce_security' => TRUE,
-				'encryption_key' => 'set key',
-				'expire_on_close' => FALSE,
-				'data_compile_type' => 'serialize');
+$params = array(
+	'create_table_db' => FALSE,
+	'sess_encrypt_cookie' => TRUE,
+	'sess_match_ip' => TRUE,
+	'sess_match_useragent' => TRUE,
+	'sess_expiration' => 28800,
+	'sess_cookie_name' => 'sess_cookie_name',
+	'cookie_prefix' => '',
+	'cookie_path' => '/',
+	'cookie_domain' => '',
+	'sess_table_name' => 'session',
+	'old_sess_probability' => 5,
+	'one_only_session_per_ip' => FALSE,
+	'sess_time_to_update' => 300,
+	'connection' => NULL,
+	'reforce_security' => TRUE,
+	'encryption_key' => 'set key',
+	'expire_on_close' => FALSE,
+	'data_compile_type' => 'json',
+	'overide_native_session' => FALSE,
+	'func_custom_connect' => NULL
+);
 
 
 --Change History
@@ -63,14 +67,16 @@ class Session
 	public $cookie_prefix				= '';						//PREFIXO DO COOKIE
 	public $cookie_path					= '/';						//PATCH DO COOKIE
 	public $cookie_domain				= '';						//DOMINIO DO COOKIE
-	public $sess_table_name				= 'sess_session'; 			//NOME DA TABELA DO BANCO DE DADOS
+	public $sess_table_name				= 'session'; 				//NOME DA TABELA DO BANCO DE DADOS
 	public $old_sess_probability 		= 5;							//CHANCE PARA EXCLUIR SESSÕES VELHAS
 	public $one_only_session_per_ip		= FALSE;						//APENAS UMA SESSAO POR IP
 	public $sess_time_to_update			= 300;						//TEMPO PARA RENOVAÇÃO DO ID DA SESSÃO
 	public $reforce_security				= TRUE;						//ADICIONA PROTEÇÃO CONTRA MANIPULAÇÃO DA SESSÃO
 	public $encryption_key				= '';						//GERE UMA KEY EM rfs.net.br/gerarkey.php
 	public $expire_on_close				= FALSE;						//SESSÃO EXPIRA AO FECHAR O NAVEGADOR
-	public $data_compile_type			= 'serialize';				//OPÇÕES SERIALIZE OU JSON
+	public $data_compile_type			= 'json';					//OPÇÕES SERIALIZE OU JSON
+	public $overide_native_session		= FALSE;						//SUBISTITUI O PADRAO $_SESSION
+	public $func_custom_connect			= NULL;
 	
 	private $cookie 						= ''; 						//NAO ALTERE
 	private $id_session 					= ''; 						//NAO ALTERE
@@ -80,6 +86,7 @@ class Session
 	private $now							= 0;							//NAO ALTERE
 	private $userdata 					= array();					//NAO ALTERE
 	private $info 						= array();					//NAO ALTERE
+	
 	
 	
 	/* Query's */
@@ -96,14 +103,26 @@ class Session
 		
 		if($this->create_table_db)
 		{
-			$this->query("CREATE TABLE IF NOT EXISTS `$this->sess_table_name` (
-				  `session_id` varchar(40) NOT NULL,
-				  `ip_address` varchar(20) NOT NULL,
-				  `user_agent` varchar(120) NOT NULL,
-				  `last_activity` int(11) NOT NULL,
-				  `user_data` longtext NULL,
-				  PRIMARY KEY (`session_id`)
-				) ENGINE=InnoDB DEFAULT CHARSET=utf8;") or die('Ao criar tabela: '. mysql_error());
+			$this->query("CREATE TABLE IF NOT EXISTS `{$this->sess_table_name}` (
+						  `session_id` varchar(40) NOT NULL,
+						  `ip_address` varchar(20) NOT NULL,
+						  `user_agent` varchar(120) NOT NULL,
+						  `last_activity` int(11) NOT NULL,
+						  `user_data` mediumblob,
+						  PRIMARY KEY (`session_id`)
+						) ENGINE=InnoDB DEFAULT CHARSET=utf8;") or die('Ao criar tabela: '. mysql_error());
+		}
+		
+		if($this->overide_native_session)
+		{
+			session_set_save_handler(
+				array($this, "init"),
+				array($this, "close"),
+				array($this, "alldata"),
+				array($this, "set_userdata"),
+				array($this, "sess_destroy"),
+				array($this, "clear")
+			);
 		}
 		
 		$this->sess_cookie_name = $this->cookie_prefix.$this->sess_cookie_name;
@@ -123,22 +142,12 @@ class Session
 			$this->sess_expiration = 0;
 		}
 		
+		if(is_callable($this->func_custom_connect))
+		{
+			$this->connection = $this->func_custom_connect();
+		}
 		
-		if ( ! $this->sess_read() )
-		{
-			if($this->one_only_session_per_ip)
-			{
-				$this->where('`ip_address` =',$this->ip);
-				$this->limit($this->old_sess_probability);
-				$this->delete($this->sess_table_name);
-			}
-			
-			$this->sess_create();
-		}
-		else
-		{
-			$this->sess_update();
-		}
+		self::init();
 		
 		$this->clear();
 	}
@@ -237,6 +246,30 @@ class Session
 		return TRUE;
 	}
 	
+	public function custom_connect($func)
+	{
+		$this->func_custom_connect = $func;
+		return $this->connection = $this->func_custom_connect();
+	}
+	
+	public function init()
+	{
+		if ( ! $this->sess_read() )
+		{
+			if($this->one_only_session_per_ip)
+			{
+				$this->where('`ip_address` =',$this->ip);
+				$this->limit($this->old_sess_probability);
+				$this->delete($this->sess_table_name);
+			}
+			
+			$this->sess_create();
+		}
+		else
+		{
+			$this->sess_update();
+		}
+	}
 	
 	private function sess_read()
 	{
@@ -416,6 +449,12 @@ class Session
 		return $this->sess_destroy();
 	}
 	
+	public function close()
+	{
+		$this->userdata = NULL;
+		return TRUE;
+	}
+	
 	private function clear()
 	{
 		if((rand() % 100) < $this->old_sess_probability)
@@ -501,11 +540,11 @@ class Session
 		}
 		
 		setcookie(
-					$this->sess_cookie_name,
-					$cookie_data,
-					($this->now + $this->sess_expiration),
-					$this->cookie_path,
-					$this->cookie_domain
+			$this->sess_cookie_name,
+			$cookie_data,
+			($this->now + $this->sess_expiration),
+			$this->cookie_path,
+			$this->cookie_domain
 		);
 	}
 	
@@ -524,7 +563,7 @@ class Session
 	{
 		if(strtolower($this->data_compile_type) == 'json' AND function_exists('json_encode'))
 		{
-			return @json_encode($data);
+			return @json_encode($data,JSON_FORCE_OBJECT);
 		} else
 		{
 			if (is_array($data))
@@ -659,21 +698,22 @@ class Session
 	{
 		if($this->connection === NULL)
 		{
-			return mysql_query($sql);
-		} else
+			return mysqli_query($sql);
+		}
+		else
 		{
-			return mysql_query($sql,$this->connection);
+			return mysqli_query($this->connection,$sql);
 		}
 	}
 	
 	public function item($query,$column,$line = 0)
 	{
-		return mysql_result($query,$line,$column);
+		return mysqli_result($query,$line,$column);
 	}
 	
 	public function num_rows($query)
 	{
-		return mysql_num_rows($query);
+		return mysqli_num_rows($query);
 	}
 	
 	/*********** FIM QUERYS FUNCTIONS ***********/
